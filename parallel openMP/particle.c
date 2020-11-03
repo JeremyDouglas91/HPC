@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <time.h>
+#include <omp.h>  //include OMP library
 
 #define DEFAULT_POP_SIZE 300 //bigger population is more costly
 #define DEFAULT_NUM_PARTICLES 30 //more PARTICLES is more costly
@@ -17,7 +19,7 @@ static const int Y_DEFAULT=20; //length of box
 static const double MUTATION_RATE=0.10; //how often random mutations occur
 static const double MAX_GEN =1000; // maximum number of generations
 static const double ITERATIONS=10; //number of times the whole process is run
-static const double TOLERANCE=50; //not used... yet
+static const double TOLERANCE=100; //not used... yet
 
 
 //each person has x and y location in box
@@ -73,6 +75,7 @@ double calcFitness(box_pattern box,int num_particles){
 /* Creates initial random population */
 void initPopulation(box_pattern * box, int population_size,int xmax,int ymax,int num_particles){
     int i,p;
+    #pragma omp parallel for private(i) 
     for (p=0;p<population_size;p++) {
         for (i=0; i<num_particles; i++){
             box[p].person[i].x_pos=(rand()%(xmax + 1));
@@ -98,7 +101,7 @@ box_pattern crossover(box_pattern child, box_pattern parentOne, box_pattern pare
         child.person[i].x_pos = parentTwo.person[i].x_pos;
         child.person[i].y_pos = parentTwo.person[i].y_pos;
     }
-    child.fitness=calcFitness(child,num_particles); //calculate fitness
+    //child.fitness=calcFitness(child,num_particles); //calculate fitness
     return child;
 }
 
@@ -203,12 +206,17 @@ int breeding(box_pattern * box, int population_size, int x_max, int y_max, int n
 
 
 int main(int argc, char *argv[] ){
+        // Initialise variables
         int population_size=DEFAULT_POP_SIZE;
         int x_max =X_DEFAULT;
         int y_max=Y_DEFAULT;
         int num_particles=DEFAULT_NUM_PARTICLES;
         int iter=ITERATIONS;
         int k,i;
+        
+        clock_t begin = clock(); //timing
+
+        // Read in command line arguments
         if (argc >=2) {
             population_size = atoi(argv[1]); //size population first command line argument
             if (argc>=4) {
@@ -219,8 +227,9 @@ int main(int argc, char *argv[] ){
             if (argc==6) iter =atoi(argv[5]);
         }
 
+        // First output in terminal (sim input parameters)
         printf("Starting optimization with particles = %d, population=%d, width=%d,length=%d for %d iterations\n",num_particles,population_size,x_max,y_max,iter);
-    
+        printf("OMP Threads: %d", omp_get_num_threads());
         int gen_count=0;           
     
         FILE *f = fopen("solution.txt", "w");
@@ -242,9 +251,15 @@ int main(int argc, char *argv[] ){
                 // main loop
                 int stop=0;
                 int gen=0,highest=0;
-                while (gen<MAX_GEN){ 
+                double fit = 0, prev_fit = 0;
+                int count = 0;
+                while (gen<MAX_GEN && count < TOLERANCE){
                     highest=breeding(population, population_size, x_max, y_max, num_particles);
                     gen+=1;
+                    prev_fit = fit;
+                    fit = population[highest].fitness;
+                    if (fit > prev_fit) count = 0;
+                    count ++;
                 }
             printf("# generations= %d \n", gen);
             printf("Best solution:\n");
@@ -264,6 +279,11 @@ int main(int argc, char *argv[] ){
                 free(population[i].person); //release memory
         free(population); //release memory
 
+        clock_t end = clock(); // timing
+        double delta_time = 0.0;
+        delta_time += (double)(end-begin)/CLOCKS_PER_SEC;
+
+        printf("Time: \t %f \n", delta_time);
         printf("Average generations: %f\n", (double)gen_count/(double)k);
         return 0;
 }
