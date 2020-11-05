@@ -16,7 +16,7 @@
 static const int X_DEFAULT=20; //width of box
 static const int Y_DEFAULT=20; //length of box
 static const double MUTATION_RATE=0.10; //how often random mutations occur
-static const double MAX_GEN =1000; // maximum number of generations
+static const double MAX_GEN =200; // maximum number of generations
 static const double ITERATIONS=10; //number of times the whole process is run
 static const double TOLERANCE=100; //not used... yet
 
@@ -131,8 +131,7 @@ int breeding(box_pattern * box, int population_size, int x_max, int y_max, int n
                 int parentOne = two;
                 if (box[one].fitness > box[two].fitness) parentOne=one; //joust
             
-                one = rand()%(population_size);
-                two=rand()%(population_size);
+                one = rand()%(population_size), two=rand()%(population_size);
                 int parentTwo=two;
                 if (box[one].fitness > box[two].fitness) parentTwo=one; //joust
             
@@ -240,7 +239,7 @@ int main(int argc, char *argv[] ){
             population[i].person=malloc(num_particles*sizeof(position));//allocate memory
     
         for (k=0; k<iter; k++){ //k is number of times whole simulation is run
-              // populate with initial population
+                // populate with initial population
                 printf("initializing population\n");
                 initPopulation(population,population_size,x_max,y_max,num_particles);
                 printf("=========%d\n", k);
@@ -251,14 +250,18 @@ int main(int argc, char *argv[] ){
                 int gen=0,highest=0;
                 double fit = 0, prev_fit = 0;
                 int count = 0;
-                while (gen<MAX_GEN && count < TOLERANCE){
+                while (gen<MAX_GEN){
                     highest=breeding(population, population_size, x_max, y_max, num_particles);
                     gen+=1;
+
+                    // termination conditions
+                    count ++;
                     prev_fit = fit;
                     fit = population[highest].fitness;
                     if (fit > prev_fit) count = 0;
-                    count ++;
                 }
+
+            // print stuff at end of simulation
             printf("# generations= %d \n", gen);
             printf("Best solution:\n");
             printbox(population[highest],num_particles);
